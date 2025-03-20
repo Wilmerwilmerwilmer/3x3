@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3x3</title>
+  <link rel="stylesheet" href="../assets/css/styles.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      background-color: #FFFFFF;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .nav-menu {
+      background-color: #F2F2F2;
+      padding: 1rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .nav-menu ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+    }
+
+    .nav-menu a {
+      text-decoration: none;
+      color: #1B1717;
+      font-weight: bold;
+      padding: 0.5rem 1rem;
+      border-radius: 5px;
+      transition: background-color 0.3s ease;
+    }
+
+    .nav-menu a:hover {
+      background-color: #E5E5E5;
+    }
+
+    .nav-menu a.active {
+      background-color: #00a3ff;
+      color: white;
+    }
+
+    .game-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+    }
+
+    .grid {
+      position: relative;
+      width: 35vw;
+      height: 35vw;
+      padding: 10px;
+    }
+
+    .grid-item {
+      position: absolute;
+      width: calc(35vw / 3 - 10px);
+      height: calc(35vw / 3 - 10px);
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 2px solid transparent;
+      border-radius: 10px;
+      background-color: white;
+      cursor: pointer;
+      transform-origin: center center;
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease;
+      will-change: transform;
+      transform: translate(var(--translate-x), var(--translate-y)) !important;
+      box-sizing: border-box;
+    }
+
+    .grid-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+    }
+
+    .grid .grid-item:not(.locked):not(.selected):hover {
+      transform: translate(var(--translate-x), var(--translate-y)) scale(1.1) !important;
+      border-color: transparent;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+      z-index: 1;
+    }
+
+    .grid .grid-item.selected {
+      border-color: #00a3ff;
+      transform: translate(var(--translate-x), var(--translate-y)) scale(1.1) !important;
+      box-shadow: 0 10px 30px rgba(0, 163, 255, 0.1);
+      z-index: 1;
+    }
+
+    .grid .grid-item.locked {
+      border-color: #39B200;
+      box-shadow: 0 10px 30px rgba(57, 178, 0, 0.1);
+      pointer-events: none;
+      z-index: 2;
+      transform: translate(var(--translate-x), var(--translate-y)) !important;
+    }
+
+    .category-label {
+      position: absolute;
+      padding: 5px 10px;
+      background-color: #F2F2F2;
+      color: #A5A5A5;
+      border-radius: 5px;
+      font-size: 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      white-space: nowrap;
+    }
+
+    .category-label.row {
+      left: calc(100% + 20px);
+      transform: translateY(-50%);
+    }
+
+    .category-label.column {
+      bottom: calc(100% + 10px);
+      transform: translateX(-50%);
+    }
+
+    .category-label.visible {
+      opacity: 1;
+    }
+
+    @media (orientation: portrait) {
+      .grid {
+        width: 90vw;
+        height: 90vw;
+      }
+    }
+  </style>
+</head>
+<body>
+  
+  
+  <!--<nav class="nav-menu">
+    <ul>
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../draw/index.draw.html">Draw</a></li>
+      <li><a href="../archive/index.archive.html">Archive</a></li>
+      <li><a href="index.connections.html" class="active">Connections</a></li>
+      <li><a href="../guess/index.guess.html">Guess</a></li>
+    </ul>
+  </nav> !-->
+
+  <div class="game-container">
+    <div class="grid"></div>
+  </div>
+
+  <script src="../assets/js/common.js"></script>
+  <script>
+    class ConnectionsGame {
+      constructor() {
+        this.grid = document.querySelector('.grid');
+        this.selectedItem = null;
+        this.lockedCategories = new Set();
+        this.usedMainCategories = new Set(); // Track multiple main categories
+        this.initializeGame();
+        this.setupEventListeners();
+      }
+    
+      initializeGame() {
+        this.grid.innerHTML = '';
+        this.selectedItem = null;
+        this.lockedCategories.clear();
+        this.usedMainCategories.clear();
+        
+        const gameItems = this.generateRandomGame();
+        gameItems.forEach((item, index) => {
+          const gridItem = document.createElement('div');
+          gridItem.className = 'grid-item';
+          gridItem.innerHTML = `<img src="../assets/drawings/${item.src}" 
+            alt="${item.alt}" 
+            data-main-category="${item.mainCategory}"
+            data-sub-category="${item.subCategory}"
+            data-attributes='${JSON.stringify(item.attributes)}'>`;
+          gridItem.dataset.index = index;
+          
+          const pos = this.getTranslate(index);
+          gridItem.style.setProperty('--translate-x', pos.x);
+          gridItem.style.setProperty('--translate-y', pos.y);
+          
+          this.grid.appendChild(gridItem);
+        });
+      }
+    
+      getTranslate(index) {
+        const col = index % 3;
+        const row = Math.floor(index / 3);
+        const itemSize = 'calc(35vw / 3)';
+        const gap = '20px';
+        const x = `calc(${col} * ${itemSize} + ${col} * ${gap})`;
+        const y = `calc(${row} * ${itemSize} + ${row} * ${gap})`;
+        return { x, y };
+      }
+    
+      shuffleArray(array) {
+        const newArray = [...array];
+        for (let i = newArray.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+        }
+        return newArray;
+      }
+    
+      setupEventListeners() {
+        this.grid.addEventListener('click', (e) => {
+          const gridItem = e.target.closest('.grid-item');
+          if (!gridItem || gridItem.classList.contains('locked')) return;
+          this.handleItemClick(gridItem);
+        });
+      }
+    
+      handleItemClick(item) {
+        if (!this.selectedItem) {
+          this.selectedItem = item;
+          item.classList.add('selected');
+        } else if (this.selectedItem === item) {
+          this.selectedItem.classList.remove('selected');
+          this.selectedItem = null;
+        } else {
+          this.selectedItem.classList.remove('selected');
+          this.swapItems(this.selectedItem, item);
+          this.selectedItem = null;
+        }
+      }
+    
+      swapItems(item1, item2) {
+        const index1 = parseInt(item1.dataset.index);
+        const index2 = parseInt(item2.dataset.index);
+    
+        // Update the dataset indices
+        item1.dataset.index = index2;
+        item2.dataset.index = index1;
+    
+        // Calculate new positions
+        const pos1 = this.getTranslate(index2);
+        const pos2 = this.getTranslate(index1);
+    
+        // Update CSS custom properties
+        item1.style.setProperty('--translate-x', pos1.x);
+        item1.style.setProperty('--translate-y', pos1.y);
+        item2.style.setProperty('--translate-x', pos2.x);
+        item2.style.setProperty('--translate-y', pos2.y);
+    
+        // Re-check alignments after animation
+        setTimeout(() => this.checkAlignments(), 300);
+      }
+    
+      // Generate a random game layout
+      generateRandomGame() {
+        // Get all possible items and their matching possibilities
+        const allItems = [];
+        const matchGroups = []; // Will hold all possible groups of 3+ matching items
+        
+        // First collect all items
+        Object.entries(gridItems).forEach(([mainCategory, subCategories]) => {
+          Object.entries(subCategories).forEach(([subCategory, details]) => {
+            for (let i = 1; i <= details.count; i++) {
+              allItems.push({
+                mainCategory,
+                subCategory,
+                number: i,
+                attributes: details.attributes,
+                imageKey: `${mainCategory}-${subCategory}-${i}`
+              });
+            }
+          });
+        });
+
+        // Find all possible groups (by category, subcategory, or attributes)
+        const itemsByCategory = new Map();
+        const itemsBySubCategory = new Map();
+        const itemsByAttribute = new Map();
+
+        // Group items by their different properties
+        allItems.forEach(item => {
+          // Group by main category
+          if (!itemsByCategory.has(item.mainCategory)) {
+            itemsByCategory.set(item.mainCategory, []);
+          }
+          itemsByCategory.get(item.mainCategory).push(item);
+
+          // Group by subcategory
+          if (!itemsBySubCategory.has(item.subCategory)) {
+            itemsBySubCategory.set(item.subCategory, []);
+          }
+          itemsBySubCategory.get(item.subCategory).push(item);
+
+          // Group by attributes
+          item.attributes.forEach(attr => {
+            if (!itemsByAttribute.has(attr)) {
+              itemsByAttribute.set(attr, []);
+            }
+            itemsByAttribute.get(attr).push(item);
+          });
+        });
+
+        // Add any group that has 3 or more items to matchGroups
+        itemsByCategory.forEach((items, category) => {
+          if (items.length >= 3) {
+            matchGroups.push({
+              type: 'category',
+              name: category,
+              items: items
+            });
+          }
+        });
+
+        itemsBySubCategory.forEach((items, subcategory) => {
+          if (items.length >= 3) {
+            matchGroups.push({
+              type: 'subcategory',
+              name: subcategory,
+              items: items
+            });
+          }
+        });
+
+        itemsByAttribute.forEach((items, attribute) => {
+          if (items.length >= 3) {
+            matchGroups.push({
+              type: 'attribute',
+              name: attribute,
+              items: items
+            });
+          }
+        });
+
+        // Try to create a valid game
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const selectedItems = [];
+          const usedImages = new Set();
+          
+          // Randomly shuffle all possible match groups
+          const shuffledGroups = this.shuffleArray([...matchGroups]);
+          
+          // Try to find three valid groups
+          let groupsFound = 0;
+          
+          for (const group of shuffledGroups) {
+            if (groupsFound >= 3) break;
+            
+            // Get items from this group that haven't been used yet
+            const availableItems = group.items.filter(item => !usedImages.has(item.imageKey));
+            
+            if (availableItems.length >= 3) {
+              // Select 3 random items from this group
+              const selectedForGroup = this.shuffleArray(availableItems).slice(0, 3);
+              selectedForGroup.forEach(item => {
+                selectedItems.push(item);
+                usedImages.add(item.imageKey);
+              });
+              groupsFound++;
+            }
+          }
+
+          // If we found three groups with three items each
+          if (selectedItems.length === 9) {
+            // Convert to final format and shuffle
+            let finalItems;
+            do {
+              finalItems = this.shuffleArray(selectedItems).map(item => ({
+                src: getItemFilePath(item.mainCategory, item.subCategory, item.number),
+                alt: `${item.subCategory} ${item.number}`,
+                mainCategory: item.mainCategory,
+                subCategory: item.subCategory,
+                attributes: item.attributes
+              }));
+            } while (this.hasInitialMatches(finalItems));
+
+            return finalItems;
+          }
+        }
+
+        // If we couldn't generate a valid game after 100 attempts, try again
+        return this.generateRandomGame();
+      }
+
+      hasInitialMatches(items) {
+        // Check rows
+        for (let row = 0; row < 3; row++) {
+          const rowItems = items.slice(row * 3, (row + 1) * 3);
+          const mainCategories = rowItems.map(item => item.mainCategory);
+          const subCategories = rowItems.map(item => item.subCategory);
+          
+          // If all items in a row share the same subcategory or main category, it's a match
+          if (new Set(subCategories).size === 1 || new Set(mainCategories).size === 1) {
+            return true;
+          }
+        }
+
+        // Check columns
+        for (let col = 0; col < 3; col++) {
+          const colItems = [items[col], items[col + 3], items[col + 6]];
+          const mainCategories = colItems.map(item => item.mainCategory);
+          const subCategories = colItems.map(item => item.subCategory);
+          
+          // If all items in a column share the same subcategory or main category, it's a match
+          if (new Set(subCategories).size === 1 || new Set(mainCategories).size === 1) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+    
+      checkAlignments() {
+        // Remove any existing labels
+        this.removeLabels();
+        
+        // Debug: Log current state
+        console.log('Checking alignments...');
+        console.log('Used main categories:', Array.from(this.usedMainCategories));
+        console.log('Locked categories:', Array.from(this.lockedCategories));
+        
+        // Check rows and columns for matches
+        let hasNewMatch = false;
+        let rowMatches = false;
+        let colMatches = false;
+        
+        // Keep checking until no new matches are found
+        do {
+          hasNewMatch = false;
+          rowMatches = this.checkRows();
+          colMatches = this.checkColumns();
+          hasNewMatch = rowMatches || colMatches;
+        } while (hasNewMatch);
+        
+        // Check win condition only after all possible matches are found
+        const allLocked = Array.from(document.querySelectorAll('.grid-item'))
+          .every(item => item.classList.contains('locked'));
+          
+        if (allLocked) {
+          setTimeout(() => {
+            alert('Congratulations! You won! Click OK to start a new game.');
+            this.initializeGame();
+          }, 500);
+        }
+      }
+
+      checkRows() {
+        let hasNewMatch = false;
+        const gridItems = Array.from(document.querySelectorAll('.grid-item'));
+        
+        // Check each row
+        for (let row = 0; row < 3; row++) {
+          const rowItems = gridItems.filter(item => 
+            Math.floor(parseInt(item.dataset.index) / 3) === row
+          );
+          
+          // Skip if all items in this row are already locked
+          if (rowItems.every(item => item.classList.contains('locked'))) {
+            continue;
+          }
+          
+          // Check for matches in this row
+          const mainCategories = rowItems.map(item => 
+            item.querySelector('img').dataset.mainCategory
+          );
+          const subCategories = rowItems.map(item => 
+            item.querySelector('img').dataset.subCategory
+          );
+          const attributes = rowItems.map(item => 
+            JSON.parse(item.querySelector('img').dataset.attributes)
+          );
+          
+          // First check attribute match
+          const sharedAttributes = attributes[0].filter(attr => 
+            attributes[1].includes(attr) && attributes[2].includes(attr)
+          );
+          
+          if (sharedAttributes.length > 0) {
+            const attribute = sharedAttributes[0];
+            if (!this.lockedCategories.has(attribute)) {
+              rowItems.forEach(item => item.classList.add('locked'));
+              this.lockedCategories.add(attribute);
+              this.addLabel(rowItems[1], attribute, 'row');
+              hasNewMatch = true;
+              continue;
+            }
+          }
+          
+          // Then check sub-category match
+          if (new Set(subCategories).size === 1) {
+            const subCategory = subCategories[0];
+            if (!this.lockedCategories.has(subCategory)) {
+              rowItems.forEach(item => item.classList.add('locked'));
+              this.lockedCategories.add(subCategory);
+              this.addLabel(rowItems[1], subCategory, 'row');
+              hasNewMatch = true;
+              continue;
+            }
+          }
+          
+          // Finally check main category
+          if (new Set(mainCategories).size === 1) {
+            const mainCategory = mainCategories[0];
+            
+            if (!this.lockedCategories.has(mainCategory)) {
+              const allItemsOfCategory = gridItems.filter(item => 
+                !item.classList.contains('locked') && 
+                item.querySelector('img').dataset.mainCategory === mainCategory
+              );
+              
+              if (allItemsOfCategory.length === rowItems.length && 
+                  allItemsOfCategory.every(item => rowItems.includes(item))) {
+                rowItems.forEach(item => item.classList.add('locked'));
+                this.lockedCategories.add(mainCategory);
+                this.usedMainCategories.add(mainCategory);
+                this.addLabel(rowItems[1], mainCategory, 'row');
+                hasNewMatch = true;
+              }
+            }
+          }
+        }
+        
+        return hasNewMatch;
+      }
+
+      checkColumns() {
+        let hasNewMatch = false;
+        const gridItems = Array.from(document.querySelectorAll('.grid-item'));
+        
+        // Check each column
+        for (let col = 0; col < 3; col++) {
+          const colItems = gridItems.filter(item => 
+            parseInt(item.dataset.index) % 3 === col
+          );
+          
+          // Skip if all items in this column are already locked
+          if (colItems.every(item => item.classList.contains('locked'))) {
+            continue;
+          }
+          
+          // Check for matches in this column
+          const mainCategories = colItems.map(item => 
+            item.querySelector('img').dataset.mainCategory
+          );
+          const subCategories = colItems.map(item => 
+            item.querySelector('img').dataset.subCategory
+          );
+          const attributes = colItems.map(item => 
+            JSON.parse(item.querySelector('img').dataset.attributes)
+          );
+          
+          // First check attribute match
+          const sharedAttributes = attributes[0].filter(attr => 
+            attributes[1].includes(attr) && attributes[2].includes(attr)
+          );
+          
+          if (sharedAttributes.length > 0) {
+            const attribute = sharedAttributes[0];
+            if (!this.lockedCategories.has(attribute)) {
+              colItems.forEach(item => item.classList.add('locked'));
+              this.lockedCategories.add(attribute);
+              this.addLabel(colItems[1], attribute, 'column');
+              hasNewMatch = true;
+              continue;
+            }
+          }
+          
+          // Then check sub-category match
+          if (new Set(subCategories).size === 1) {
+            const subCategory = subCategories[0];
+            if (!this.lockedCategories.has(subCategory)) {
+              colItems.forEach(item => item.classList.add('locked'));
+              this.lockedCategories.add(subCategory);
+              this.addLabel(colItems[1], subCategory, 'column');
+              hasNewMatch = true;
+              continue;
+            }
+          }
+          
+          // Finally check main category
+          if (new Set(mainCategories).size === 1) {
+            const mainCategory = mainCategories[0];
+            
+            if (!this.lockedCategories.has(mainCategory)) {
+              const allItemsOfCategory = gridItems.filter(item => 
+                !item.classList.contains('locked') && 
+                item.querySelector('img').dataset.mainCategory === mainCategory
+              );
+              
+              if (allItemsOfCategory.length === colItems.length && 
+                  allItemsOfCategory.every(item => colItems.includes(item))) {
+                colItems.forEach(item => item.classList.add('locked'));
+                this.lockedCategories.add(mainCategory);
+                this.usedMainCategories.add(mainCategory);
+                this.addLabel(colItems[1], mainCategory, 'column');
+                hasNewMatch = true;
+              }
+            }
+          }
+        }
+        
+        return hasNewMatch;
+      }
+
+      addLabel(item, match, type) {
+        const label = document.createElement('div');
+        label.className = `category-label ${type}`;
+        label.textContent = match.charAt(0).toUpperCase() + match.slice(1);
+        
+        if (type === 'row') {
+          const rect = item.getBoundingClientRect();
+          const gridRect = this.grid.getBoundingClientRect();
+          const top = rect.top - gridRect.top + (rect.height / 2);
+          label.style.top = `${top}px`;
+        } else {
+          const rect = item.getBoundingClientRect();
+          const gridRect = this.grid.getBoundingClientRect();
+          const left = rect.left - gridRect.left + (rect.width / 2);
+          label.style.left = `${left}px`;
+        }
+        
+        this.grid.appendChild(label);
+        setTimeout(() => label.classList.add('visible'), 50);
+      }
+
+      removeLabels() {
+        const labels = document.querySelectorAll('.category-label');
+        labels.forEach(label => label.remove());
+      }
+    }
+    
+    // Start the game
+    new ConnectionsGame();
+    </script>
+    
+</body>
+</html> 

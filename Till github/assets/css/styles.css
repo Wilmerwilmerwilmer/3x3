@@ -1,0 +1,89 @@
+/* Common styles for all pages */
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background-color: #FFFFFF;
+}
+
+/* Navigation menu styles */
+.nav-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background-color: #F2F2F2;
+  padding: 1rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  z-index: 1000;
+}
+
+.nav-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+}
+
+.nav-menu a {
+  text-decoration: none;
+  color: #1B1717;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border-radius: 5px;
+  transition: background-color 0.3s ease;
+}
+
+.nav-menu a:hover {
+  background-color: #E5E5E5;
+}
+
+.nav-menu a.active {
+  background-color: #00a3ff;
+  color: white;
+}
+
+/* Content area styles */
+.content {
+  margin-top: 80px;
+  padding: 2rem;
+}
+
+h1 {
+  color: #1B1717;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+/* Home page specific styles */
+.grid-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.grid-link {
+  background-color: #F2F2F2;
+  padding: 2rem;
+  border-radius: 10px;
+  text-decoration: none;
+  color: #1B1717;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.grid-link:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.grid-link h2 {
+  margin: 0 0 1rem 0;
+}
+
+.grid-link p {
+  margin: 0;
+  color: #666;
+} 
